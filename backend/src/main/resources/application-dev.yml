@@ -1,0 +1,39 @@
+# 开发环境配置（零安装：H2 数据库 + 本地缓存，无需 MySQL/Redis）
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/life_record;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+
+
+  # H2 Web Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # 自动执行初始化 SQL
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+
+  # 开发环境使用本地缓存（ConcurrentHashMap），无需 Redis
+  cache:
+    type: simple
+
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 1000ms
+    lettuce:
+      pool:
+        max-active: 2
+        max-idle: 2
+        min-idle: 0
+        max-wait: 500ms
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
