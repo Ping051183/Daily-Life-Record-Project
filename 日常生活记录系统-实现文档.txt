@@ -1,0 +1,213 @@
+﻿日常生活记录系统 - 过程实现文档
+版本：V2.01
+日期：2026-06-02
+
+一、项目概述
+日常生活记录系统是一套前后端分离的轻量化文档管理工具，使用 Vue 3 + SpringBoot + MySQL 技术栈。
+本文档记录项目的完整实现过程，包括环境搭建、代码实现、部署配置等。
+
+二、项目结构
+日常生活记录项目/
+├── sql/
+│   └── init.sql                        # 数据库初始化脚本
+├── backend/                            # Java SpringBoot 后端
+│   ├── pom.xml                         # Maven 依赖配置
+│   ├── mvnw.cmd                        # Maven Wrapper 启动脚本
+│   ├── src/main/
+│   │   ├── java/com/liferecord/
+│   │   │   ├── LifeRecordApplication.java      # 应用启动类
+│   │   │   ├── config/                          # 配置类
+│   │   │   │   ├── CorsConfig.java              # 跨域配置
+│   │   │   │   ├── GlobalExceptionHandler.java  # 全局异常处理
+│   │   │   │   ├── MyBatisPlusConfig.java       # MyBatis-Plus 分页配置
+│   │   │   │   └── WebMvcConfig.java            # 拦截器注册
+│   │   │   ├── controller/                      # RESTful 控制器
+│   │   │   │   ├── UserController.java          # 用户接口
+│   │   │   │   ├── CategoryController.java      # 分类接口
+│   │   │   │   └── DocumentController.java      # 文档接口
+│   │   │   ├── entity/                          # 实体类
+│   │   │   │   ├── User.java
+│   │   │   │   ├── Category.java
+│   │   │   │   └── Document.java
+│   │   │   ├── mapper/                          # MyBatis-Plus Mapper
+│   │   │   │   ├── UserMapper.java
+│   │   │   │   ├── CategoryMapper.java
+│   │   │   │   └── DocumentMapper.java
+│   │   │   ├── service/                         # 业务接口
+│   │   │   │   ├── UserService.java
+│   │   │   │   ├── CategoryService.java
+│   │   │   │   └── DocumentService.java
+│   │   │   ├── service/impl/                    # 业务实现
+│   │   │   │   ├── UserServiceImpl.java
+│   │   │   │   ├── CategoryServiceImpl.java
+│   │   │   │   └── DocumentServiceImpl.java
+│   │   │   ├── interceptor/
+│   │   │   │   └── AuthInterceptor.java         # Token 鉴权拦截器
+│   │   │   └── util/
+│   │   │       ├── JwtUtil.java                 # JWT 工具类
+│   │   │       ├── Result.java                  # 统一响应封装
+│   │   │       └── MyMetaObjectHandler.java     # 自动填充处理器
+│   │   └── resources/
+│   │       ├── application.yml                  # 主配置（MySQL）
+│   │       └── application-dev.yml              # 开发配置（H2）
+│   └── data/                                    # H2 数据库文件
+├── frontend/                            # 前端静态资源
+│   ├── index.html                       # SPA 入口页面
+│   ├── css/style.css                    # 全局样式
+│   └── js/
+│       ├── api.js                       # API 封装层
+│       └── app.js                       # Vue 3 应用（所有组件）
+├── deploy/
+│   ├── nginx.conf                       # Nginx 配置参考
+│   └── deploy-guide.txt                 # 部署指南
+└── start.bat                            # 一键启动脚本
+
+三、后端实现
+3.1 技术选型
+- Java 17：长期支持版本，提供现代语言特性
+- SpringBoot 2.7.18：稳定版本，自动配置，快速开发
+- MyBatis-Plus 3.5.3.1：增强版 MyBatis，提供 BaseMapper 和分页插件
+- JWT (jjwt 0.11.5)：无状态身份验证，无需 Session
+- Maven Wrapper：无需全局安装 Maven，项目自带构建工具
+
+3.2 核心实现
+3.2.1 用户模块
+- 密码加密：SHA-256（java.security.MessageDigest）
+- 登录验证：校验密码后返回 JWT Token，Token 包含 userId 和 username
+- 拦截器：AuthInterceptor 拦截 /api/** 路径，排除 register 和 login
+- Token 解析：每次请求从 Header 提取 Bearer Token，验证后将 userId 存入 request
+
+3.2.2 文档模块
+- 分页查询：MyBatis-Plus PaginationInnerInterceptor
+- 条件筛选：LambdaQueryWrapper 动态拼接 categoryId 和 status 条件
+- 搜索：like 查询 title 和 content 字段
+- 权限校验：删除和修改操作验证 userId 所有权
+
+3.2.3 分类模块
+- 通用分类：查询 userId=0（系统默认分类）和 userId=当前用户（自定义分类）
+- 级联删除：删除分类不会删除关联文档（由业务层控制）
+
+3.3 统一响应格式
+{
+  "code": 200,        // 状态码（200=成功，500=错误，401=未登录）
+  "message": "操作成功", // 提示信息
+  "data": {}           // 响应数据
+}
+
+四、前端实现
+4.1 技术选型
+- Vue 3（CDN 引入：unpkg.com/vue@3）
+- Vue Router 4（CDN 引入：unpkg.com/vue-router@4）
+- 纯静态文件，无需 Node.js 构建
+
+4.2 页面结构（SPA 单页应用）
+- LoginView：登录/注册页
+- MainLayout：主布局（侧边栏 + 顶栏 + 内容区）
+- HomeView：文档列表页（分页、搜索、筛选、批量删除）
+- EditView：文档编辑/创建页
+- CategoriesView：分类管理页
+- ProfileView：个人中心页
+
+4.3 API 封装
+- api.js 统一管理所有 HTTP 请求
+- 自动附加 Authorization Header
+- 401 状态自动跳转到登录页
+- API_BASE 为空字符串（使用相对路径，兼容 Nginx 代理）
+
+4.4 路由守卫
+- 未登录用户自动跳转到 /login
+- 已登录用户访问 /login 自动跳转到 /home
+
+五、部署方案
+5.1 生产环境架构
+用户浏览器 → Nginx(:8088) → 前端页面
+                    ↓（/api/ 反向代理）
+              Java 后端(:8080) → MySQL(:3306)
+
+5.2 Nginx 配置要点
+- 监听 8088 端口
+- 前端资源目录：html/life-record/
+- try_files 支持 SPA 路由
+- /api/ 反向代理到 127.0.0.1:8080
+- 配置了 Host、X-Real-IP 等请求头转发
+
+5.3 后端配置 (application.yml)
+- 端口：8080
+- MySQL：localhost:3306/life_record（root/123456）
+- JWT：24 小时过期，自定义密钥
+- MyBatis-Plus：下划线转驼峰，自动 ID
+
+5.4 防火墙配置
+- 开放端口 8088（Nginx 前端）
+- 开放端口 8080（Java 后端，可选）
+
+六、启动步骤
+6.1 环境要求
+- JDK 17+
+- MySQL 8.0+（数据库 life_record 已建好）
+- Nginx（可选，开发时可直接打开 HTML）
+
+6.2 后端启动
+方式一：命令行
+  cd backend
+  mvnw.cmd clean package -DskipTests
+  java -jar target/life-record-1.0.0.jar
+
+方式二：IntelliJ IDEA
+  File → Open → 选择 backend 目录
+  运行 LifeRecordApplication.java
+
+6.3 前端启动
+方式一：Nginx 部署
+  前端文件已复制到 D:\nginx-1.28.0\html\life-record\
+  Nginx 已在端口 8088 启动
+  访问 http://localhost:8088
+
+方式二：直接打开
+  浏览器打开 frontend/index.html
+  （需后端已在 8080 端口运行）
+
+6.4 验证
+  访问 http://localhost:8088
+  注册新账号开始使用
+
+七、实现过程总结
+7.1 阶段一：需求分析与数据库设计
+- 分析需求文档，确定功能范围
+- 设计三张核心表：user、category、document
+- 编写 SQL 建表脚本和初始数据
+
+7.2 阶段二：后端 API 开发
+- 搭建 SpringBoot 项目，配置 Maven 依赖
+- 实现实体类、Mapper 接口、Service 层
+- 实现 RESTful Controller
+- 集成 JWT 鉴权和 CORS 跨域
+
+7.3 阶段三：前端页面开发
+- 使用 Vue 3 + Vue Router 4 搭建 SPA
+- 实现 5 个核心页面组件
+- 封装 API 请求层
+- 添加路由守卫和登录验证
+
+7.4 阶段四：配置与部署
+- 配置 Nginx 反向代理
+- 配置 MySQL 连接
+- 配置防火墙开放端口
+- 测试前后端联调
+
+八、常见问题
+8.1 后端启动报错 "Unable to connect to Redis"
+  原因：pom.xml 中存在 Redis 依赖但未配置 Redis 服务
+  解决：移除 Redis 相关依赖和配置类
+
+8.2 数据库连接失败 "Unsupported character encoding 'utf8mb4'"
+  原因：JDBC 连接字符串中 characterEncoding=utf8mb4 不被支持
+  解决：改为 characterEncoding=UTF-8
+
+8.3 页面 404
+  原因：直接访问了后端 API 端口 8080
+  解决：应访问 Nginx 端口 8088 或直接打开 HTML 文件
+
+8.4 编译乱码错误
+  原因：PowerShell 写入文件默认带 BOM，Java 编译器不识别
+  解决：使用 UTF-8 without BOM 编码写入 Java 源文件
