@@ -13,4 +13,10 @@
  数据库
 - MySQL 8.0+（生产环境）
 - H2 Database（开发环境，可选）
-  
+  ## 项目预览
+
+<p align="center">
+  <img src="./LifeRecord1.png" width="80%" alt="日常生活记录系统界面1">
+  <br><br>
+  <img src="./LifeRecord2.png" width="80%" alt="日常生活记录系统界面2">
+</p>
